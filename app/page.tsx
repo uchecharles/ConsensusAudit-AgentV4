@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { connectWallet, currentAccount, signText, walletWrite, onMetaMask } from "@/lib/wallet";
 import { genToWei, weiToGen } from "@/lib/units";
+import Bounties from "./components/Bounties";
 
 const AVAILABLE_EXTENSIONS = ['.sol', '.ts', '.tsx', '.js', '.py', '.rs', '.go', '.html', '.json'];
 const EXPLORER_TX = 'https://explorer-studio-dev.genlayer.com/transactions';
@@ -85,8 +86,13 @@ export default function Home() {
   const [isAppealing, setIsAppealing] = useState(false);
 
   const [adminInfo, setAdminInfo] = useState<{
-    owner: string; paused: boolean; relayer?: string; balanceGen?: string; totalSubmissions?: number
+    owner: string; paused: boolean; relayer?: string; balanceGen?: string; totalSubmissions?: number;
+    fees?: { escrowFeeBps: number; submitFeeGen: string; accruedGen: string } | null
   } | null>(null);
+  const [feePercentInput, setFeePercentInput] = useState("");
+  const [submitFeeInput, setSubmitFeeInput] = useState("");
+  const [withdrawTo, setWithdrawTo] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
   const [relayerInput, setRelayerInput] = useState("");
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminMessage, setAdminMessage] = useState<string | null>(null);
@@ -337,7 +343,7 @@ export default function Home() {
   };
 
   // Administration is signed by the connected wallet and enforced by the contract's owner check.
-  const callAdmin = async (action: 'pause' | 'unpause' | 'transfer_ownership' | 'force_refund' | 'set_relayer') => {
+  const callAdmin = async (action: 'pause' | 'unpause' | 'transfer_ownership' | 'force_refund' | 'set_relayer' | 'set_fees' | 'withdraw_fees') => {
     if (!wallet) { setAdminMessage('Error: connect the owner wallet first.'); return; }
     setAdminLoading(true);
     setAdminMessage(null);
@@ -347,6 +353,8 @@ export default function Home() {
         action === 'unpause' ? { fn: 'set_paused', args: [false] } :
         action === 'transfer_ownership' ? { fn: 'transfer_ownership', args: [newOwnerInput.trim()] } :
         action === 'set_relayer' ? { fn: 'set_relayer', args: [relayerInput.trim()] } :
+        action === 'set_fees' ? { fn: 'set_fees', args: [BigInt(Math.round(Number(feePercentInput) * 100)), genToWei(submitFeeInput || '0')] } :
+        action === 'withdraw_fees' ? { fn: 'withdraw_fees', args: [withdrawTo.trim(), genToWei(withdrawAmount || '0')] } :
         { fn: 'admin_force_refund', args: [forceRefundId.trim()] };
 
       const tx = await walletWrite(wallet, call.fn, call.args);
@@ -891,7 +899,7 @@ export default function Home() {
 
                   <p className="text-[10px] text-slate-600 leading-relaxed">
                     {result.mode === 'genlayer-consensus'
-                      ? "Escrow transactions are signed by your connected wallet, so the contract sees you as the real depositor, beneficiary or owner. The contract checks the caller and the verdict before moving anything. Opening escrow attaches real GEN via gl.message.value."
+                      ? "Escrow transactions are signed by your connected wallet, so the contract sees you as the real depositor, beneficiary or owner. The contract checks the caller and the verdict before moving anything. Opening escrow attaches real GEN via gl.message.value. A platform fee is deducted from the amount paid out on release or claim (shown in Contract administration); refunds are free."
                       : "Escrow is only available for on-chain verdicts. Connect your wallet and run the audit again to get one; off-chain analysis cannot hold or move funds."}
                   </p>
                 </div>
@@ -998,6 +1006,32 @@ export default function Home() {
               </div>
 
               <div className="space-y-1.5">
+                <label className="text-[10px] text-slate-500">
+                  Platform fees · escrow/bounty {adminInfo?.fees ? adminInfo.fees.escrowFeeBps / 100 : "—"}% · submission {adminInfo?.fees?.submitFeeGen ?? "—"} GEN · accrued {adminInfo?.fees?.accruedGen ?? "—"} GEN (max 10% and 1 GEN)
+                </label>
+                <div className="flex gap-2">
+                  <input type="text" value={feePercentInput} onChange={(e) => setFeePercentInput(e.target.value)} placeholder="Fee % (e.g. 2.5)"
+                    className="w-32 bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500 transition" />
+                  <input type="text" value={submitFeeInput} onChange={(e) => setSubmitFeeInput(e.target.value)} placeholder="Submission fee (GEN)"
+                    className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500 transition" />
+                  <button onClick={() => callAdmin('set_fees')} disabled={adminLoading || !isOwner || !feePercentInput.trim()}
+                    className="px-4 py-2 rounded-xl text-xs font-medium bg-slate-900 border border-slate-800 text-slate-300 hover:border-indigo-500/50 transition disabled:opacity-50">
+                    Set fees
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <input type="text" value={withdrawTo} onChange={(e) => setWithdrawTo(e.target.value)} placeholder="Withdraw to 0x... address"
+                    className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500 transition" />
+                  <input type="text" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} placeholder="GEN"
+                    className="w-24 bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500 transition" />
+                  <button onClick={() => callAdmin('withdraw_fees')} disabled={adminLoading || !isOwner || !withdrawTo.trim() || !withdrawAmount.trim()}
+                    className="px-4 py-2 rounded-xl text-xs font-medium bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30 transition disabled:opacity-50">
+                    Withdraw
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
                 <label className="text-[10px] text-slate-500">Force-refund a stuck escrow (break-glass)</label>
                 <div className="flex gap-2">
                   <input
@@ -1029,6 +1063,7 @@ export default function Home() {
             </div>
           </div>
         </div>
+        <Bounties wallet={wallet} onLog={addLog} />
       </main>
     </div>
   );

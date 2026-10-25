@@ -4,7 +4,7 @@
 
 Track: **Onchain Justice** · Network: **GenLayer Studio Dev (Chain `61997`)**
 
-Contract (redeploy `contracts/audit_registry.py` v9, then update `lib/contract-public.ts`): [`0x2Aa8038ea96051fb4748E538E7665Fe4EB39ef24`](https://explorer-studio-dev.genlayer.com/address/0x2Aa8038ea96051fb4748E538E7665Fe4EB39ef24)
+Contract (redeploy `contracts/audit_registry.py` v9, then update `lib/contract-public.ts`): [`0x4E50b22a93F1359eb663170fC334810487f7eEC7`](https://explorer-studio-dev.genlayer.com/address/0x4E50b22a93F1359eb663170fC334810487f7eEC7)
 
 Live Demo: `https://consensusaudit.vercel.app/`
 
@@ -91,16 +91,34 @@ The orchestrator resolves a repo, PR or file to an immutable commit SHA, then fe
 
 The UI features live node simulation states and allows users to export a finalized Markdown security certificate containing the execution latency, vulnerability counts, the reviewed content hash, commit and scope, and the transaction link.
 
+## Open bounties
+
+Anyone can post a bounty: a description of the contract they want (any language), up to 10 acceptance criteria, a GEN reward locked in the contract, and a deadline of 1 to 30 days. Anyone else can submit a solution from their own wallet. Validators judge each submission twice in one pass: is it secure, and does it meet every criterion. The first submission that is both is paid automatically and the bounty closes. Later submissions are refused. The owner can refund before any submission arrives, or after the deadline; refunds are free.
+
+Limits worth knowing: validators read code but do not run it, so criteria should be checkable by reading. Submitted code is public on chain, so a rejected near-miss can be copied. Each wallet gets 3 attempts per bounty.
+
+## Platform fees
+
+| Fee | Default | Notes |
+| --- | --- | --- |
+| Escrow / bounty payout fee | 2.5% | Taken from the amount paid out on a successful release, claim, or accepted bounty. The rate is fixed when the escrow or bounty is created. Refunds are free. |
+| Bounty submission fee | 0.001 GEN | Paid by the solver with each submission, not refunded if rejected. Discourages spam. |
+
+The contract owner can change both with `set_fees`, capped on chain at 10% and 1 GEN, and collect them with `withdraw_fees`. Plain audits are free. These are testnet GEN with no market value.
+
 ## What's on Chain
 
 | State | Meaning |
 | --- | --- |
 | `verdicts[submission_id]` | status, critical/high counts, findings, submitter, repo URL, commit SHA, content hash, scope manifest/hash, appeal depth, previous id |
-| `escrows[submission_id]` | status, amount, depositor, beneficiary |
+| `escrows[submission_id]` | status, amount, depositor, beneficiary, fee rate at creation |
+| `bounties[bounty_id]` | title, description, language, criteria, reward, owner, deadline, status, winner |
 
 **Audit Methods:** `submit_audit`, `file_appeal`, `get_verdict`, `list_submissions`  
 A caller always acts as itself. Only the owner-approved relayer (`set_relayer`) may record a different `submitter`, and the server only does so after verifying that wallet's signature over the content hash, commit, scope and nonce.
 
+**Bounty Methods:** `create_bounty` *(payable)*, `submit_bounty_solution` *(payable, pays the submission fee)*, `refund_bounty`, `get_bounty`, `list_bounties`, `get_total_bounties`  
+**Fee Methods:** `set_fees`, `withdraw_fees`, `get_fees`  
 **Escrow Methods:** `open_escrow` *(payable)*, `release_escrow`, `claim_escrow`, `refund_escrow`, `get_escrow`
 
 **Admin Methods:** `set_paused`, `transfer_ownership`, `set_relayer`, `admin_force_refund`, `get_relayer`, `get_contract_balance`, `get_version`, `get_owner`
@@ -154,7 +172,10 @@ app/api/audit/prepare/route.ts pins content to a commit and returns the exact te
 app/api/audit/route.ts        verifies the signature, relays on chain, else off-chain analysis (labelled)
 app/api/audit/status/route.ts verifies a tx hash against the contract before reporting consensus
 app/api/webhook/route.ts      signed GitHub webhook -> contract verdict -> commit status
-app/api/admin/route.ts        read-only chain telemetry (writes are wallet-signed in the browser)
+app/api/admin/route.ts        read-only chain telemetry and fees (writes are wallet-signed in the browser)
+app/api/bounties/route.ts     read-only bounty list and fee schedule
+app/api/bounty/bundle/route.ts pins a solver's code to a commit and hashes it; the solver's wallet submits
+app/components/Bounties.tsx   bounty board: post, browse, submit, refund
 app/api/lookup/route.ts       direct read access for querying verdicts, escrows, and submission lists
 app/page.tsx                  interactive dashboard: audit, appeal, settlement, lookup, and admin UI
 

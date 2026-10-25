@@ -21,3 +21,5 @@ __pycache__/
 # os / editor
 .DS_Store
 .vercel
+.env.local
+

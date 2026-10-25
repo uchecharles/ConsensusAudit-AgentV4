@@ -91,7 +91,8 @@ export async function walletWrite(
   address: string,
   functionName: string,
   args: any[],
-  valueWei?: bigint
+  valueWei?: bigint,
+  opts: { retries?: number } = {}
 ): Promise<WalletTx> {
   await ensureChain();
   const client: any = createClient({ chain: studioDevnet, account: address as `0x${string}`, provider: await pickProvider() });
@@ -111,7 +112,7 @@ export async function walletWrite(
     hash,
     waitUntil: 'finalized',
     interval: 3000,
-    retries: 60
+    retries: opts.retries ?? 60
   });
   const exec = String(receipt?.txExecutionResultName ?? '');
   if (receipt?.status === 'reverted' || (exec && exec !== 'FINISHED_WITH_RETURN')) {

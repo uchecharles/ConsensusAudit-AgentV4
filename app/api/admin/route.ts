@@ -14,16 +14,25 @@ export async function GET() {
     const read = (functionName: string) =>
       client.readContract({ address: GENLAYER_CONTRACT_ADDRESS, functionName: functionName as any, args: [] });
 
-    const [owner, paused, balanceWei, totalSubmissions, version, relayer] = await Promise.all([
+    const [owner, paused, balanceWei, totalSubmissions, version, relayer, feesRaw] = await Promise.all([
       read('get_owner') as Promise<string>,
       read('is_paused') as Promise<boolean>,
       read('get_contract_balance') as Promise<string>,
       read('get_total_submissions') as Promise<number>,
       read('get_version') as Promise<string>,
-      read('get_relayer').catch(() => '') as Promise<string>
+      read('get_relayer').catch(() => '') as Promise<string>,
+      read('get_fees').catch(() => '') as Promise<string>
     ]);
 
+    const fees = feesRaw ? JSON.parse(feesRaw) : null;
     return NextResponse.json({
+      fees: fees && {
+        escrowFeeBps: fees.escrow_fee_bps,
+        submitFeeWei: fees.submit_fee_wei,
+        submitFeeGen: weiToGen(fees.submit_fee_wei),
+        accruedWei: fees.accrued_wei,
+        accruedGen: weiToGen(fees.accrued_wei)
+      },
       owner,
       paused,
       relayer,
