@@ -4,7 +4,7 @@
 
 Track: **Onchain Justice** · Network: **GenLayer Studio Dev (Chain `61997`)**
 
-Contract (redeploy `contracts/audit_registry.py` v9, then update `lib/contract-public.ts`): [`0x4E50b22a93F1359eb663170fC334810487f7eEC7`](https://explorer-studio-dev.genlayer.com/address/0x4E50b22a93F1359eb663170fC334810487f7eEC7)
+Contract (redeploy `contracts/audit_registry.py` v9, then update `lib/contract-public.ts`): [`0x2Aa8038ea96051fb4748E538E7665Fe4EB39ef24`](https://explorer-studio-dev.genlayer.com/address/0x2Aa8038ea96051fb4748E538E7665Fe4EB39ef24)
 
 Live Demo: `https://consensusaudit.vercel.app/`
 
